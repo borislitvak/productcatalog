@@ -54,7 +54,7 @@ jobs:
           name: "update image version"
           command: |
             cd store/apps/
-            yq -e -i "(. | select(.kind == \"Application\").spec.source.kustomize.images[0]) =  \"${AWS_ECR_REGISTRY_ID}/productcatalogservice:${CIRCLE_SHA1}\"" productcatalogservice.yaml
+            yq -e -i "(. | select(.kind == \"Application\").spec.source.kustomize.images[0]) =  \"${AWS_ECR_REGISTRY_NAME}/productcatalogservice:${CIRCLE_SHA1}\"" productcatalogservice.yaml
       - run: 
           name: "commit and push"
           command: |
