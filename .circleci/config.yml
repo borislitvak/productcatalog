@@ -36,6 +36,32 @@ jobs:
       DOCKER_BUILDKIT: 1
     steps:
       - checkout
+  update_and_deploy:
+    <<: *base_image
+    environment:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - add_ssh_keys:
+          fingerprints:
+            - "4c:a4:e7:04:de:44:f3:79:4e:97:ee:b8:57:c5:5b:4c"
+      - run:
+          name: Add github.com to known hosts
+          command: ssh-keyscan github.com >> ~/.ssh/known_hosts
+      - run: git clone "git@github.com:snyk-retail-store-demo/store.git"
+      - run: git config --global user.email "${GITHUB_EMAIL}"
+      - run: git config --global user.name "${GITHUB_USERNAME}"
+      - run: 
+          name: "update image version"
+          command: |
+            cd store/apps/
+            yq -e -i "(. | select(.kind == \"Application\").spec.source.kustomize.images[0]) =  \"${AWS_ECR_REGISTRY_ID}/productcatalogservice:${CIRCLE_SHA1}\"" productcatalogservice.yaml
+      - run: 
+          name: "commit and push"
+          command: |
+            cd store/apps/
+            git add .
+            git commit --allow-empty -m "feat: deploy productcatalogservice version ${CIRCLE_SHA1}"
+            git push
 
 workflows:
   version: 2
@@ -58,3 +84,9 @@ workflows:
           tag: '${CIRCLE_SHA1}'
           context: 
             - ecr
+      - update_and_deploy:
+          requires: 
+            - aws-ecr/build-and-push-image
+          context:
+            - ecr
+            - github
