@@ -38,13 +38,13 @@ import (
 	"go.opentelemetry.io/contrib/propagators/aws/xray"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	"go.opentelemetry.io/contrib/detectors/aws/eks"
 )
 
 var (
@@ -183,18 +183,13 @@ func initTracing() {
 
 	idg := xray.NewIDGenerator()
 
-	service := "productcatalog"
-
-	res := resource.NewWithAttributes(
-		semconv.SchemaURL,
-		// the service name used to display traces in backends
-		semconv.ServiceNameKey.String(service),
-	)
-	handleErr(err, "failed to create resource")
+	// Instantiate a new EKS Resource detector
+	eksResourceDetector := eks.NewResourceDetector()
+	resource, err := eksResourceDetector.Detect(context.Background())
 
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithResource(res),
+		sdktrace.WithResource(resource),
 		sdktrace.WithBatcher(traceExporter),
 		sdktrace.WithIDGenerator(idg),
 	)
