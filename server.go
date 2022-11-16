@@ -34,6 +34,14 @@ import (
 	"cloud.google.com/go/profiler"
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/sirupsen/logrus"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	"go.opentelemetry.io/contrib/propagators/aws/xray"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/sdk/resource"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -70,9 +78,7 @@ func init() {
 
 func main() {
 	if os.Getenv("DISABLE_TRACING") == "" {
-		log.Info("Tracing enabled but temporarily unavailable.")
-		log.Info("See https://github.com/GoogleCloudPlatform/microservices-demo/issues/422 for more info.")
-		go initTracing()
+		initTracing()
 	} else {
 		log.Info("Tracing disabled.")
 	}
@@ -128,12 +134,14 @@ func run(port string) string {
 		log.Fatal(err)
 	}
 	var srv *grpc.Server
-	if os.Getenv("DISABLE_STATS") == "" {
-		log.Info("Stats enabled (temporarily unavailable).")
+	if os.Getenv("DISABLE_TRACING") == "" {
 		srv = grpc.NewServer()
 	} else {
-		log.Info("Stats disabled.")
-		srv = grpc.NewServer()
+		log.Info("Tracing disabled.")
+		srv = grpc.NewServer(
+			grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+			grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+		)
 	}
 
 	svc := &productCatalog{}
@@ -149,8 +157,50 @@ func initStats() {
 	// TODO(drewbr) Implement OpenTelemetry stats
 }
 
+func getXrayTraceID(span trace.Span) string {
+	xrayTraceID := span.SpanContext().TraceID().String()
+	result := fmt.Sprintf("1-%s-%s", xrayTraceID[0:8], xrayTraceID[8:])
+	return result
+}
+
+func handleErr(err error, message string) {
+	if err != nil {
+		log.Fatalf("%s: %v", message, err)
+	}
+}
+
 func initTracing() {
-	// TODO(drewbr) Implement OpenTelemetry tracing
+	ctx := context.Background()
+
+	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "0.0.0.0:4317" // setting default endpoint for exporter
+	}
+
+	// Create and start new OTLP trace exporter
+	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(endpoint), otlptracegrpc.WithDialOption(grpc.WithBlock()))
+	handleErr(err, "failed to create new OTLP trace exporter")
+
+	idg := xray.NewIDGenerator()
+
+	service := "productcatalog"
+
+	res := resource.NewWithAttributes(
+		semconv.SchemaURL,
+		// the service name used to display traces in backends
+		semconv.ServiceNameKey.String(service),
+	)
+	handleErr(err, "failed to create resource")
+
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithSampler(sdktrace.AlwaysSample()),
+		sdktrace.WithResource(res),
+		sdktrace.WithBatcher(traceExporter),
+		sdktrace.WithIDGenerator(idg),
+	)
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(xray.Propagator{})
 }
 
 func initProfiling(service, version string) {
