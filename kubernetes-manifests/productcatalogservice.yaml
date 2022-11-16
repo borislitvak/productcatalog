@@ -33,6 +33,19 @@ spec:
         runAsNonRoot: true
         runAsUser: 1000
       containers:
+      - name: aws-otel-collector
+        image: amazon/aws-otel-collector:latest
+        env:
+          - name: AWS_REGION
+            value: eu-west-1
+        imagePullPolicy: Always
+        resources:
+          limits:
+            cpu: 256m
+            memory: 512Mi
+          requests:
+            cpu: 32m
+            memory: 24Mi
       - name: server
         securityContext:
           allowPrivilegeEscalation: false
@@ -45,12 +58,22 @@ spec:
         ports:
         - containerPort: 3550
         env:
+        - name: OTEL_OTLP_ENDPOINT
+          value: "localhost:4317"
+        - name: OTEL_RESOURCE
+          value: ClusterName=srs-prod
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.namespace=default,service.name=productcatalogservice"
+        - name: S3_REGION
+          value: eu-west-1
+        - name: OTEL_METRICS_EXPORTER
+          value: "otlp"
         - name: PORT
           value: "3550"
         - name: DISABLE_STATS
           value: "1"
-        - name: DISABLE_TRACING
-          value: "1"
+        #- name: DISABLE_TRACING
+        #  value: "1"
         - name: DISABLE_PROFILER
           value: "1"
         readinessProbe:
