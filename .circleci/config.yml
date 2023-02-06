@@ -2,6 +2,7 @@ version: 2.1
 
 orbs:
   aws-ecr: circleci/aws-ecr@8.1.3
+  snyk: snyk/snyk@1.4.0
 
 base_image: &base_image
   resource_class: small
@@ -23,13 +24,49 @@ node_image: &node_image
   docker:
     - image: cimg/node:18.0.0
 
-  setup_build_remote_docker:
+jobs:
+  snyk_oss_scan:
+    <<: *go_node_image
     steps:
+      - checkout
+      - snyk/scan:
+          fail-on-issues: false
+          monitor-on-build: true
+          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}'
+          severity-threshold: high
+          token-variable: SNYK_TOKEN
+  build_scan_and_push_image:
+    <<: *base_image
+    environment:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - checkout 
       - setup_remote_docker:
           version: 20.10.11
           docker_layer_caching: true
+      - aws-ecr/build-and-push-image:
+          assume-web-identity: true
+          aws-cli-version: latest
+          dockerfile: Dockerfile
+          extra-build-args: '--compress'
+          no-output-timeout: 20m
+          platform: linux/amd64
+          push-image: true
+          repo: productcatalogservice 
+          repo-scan-on-push: true
+          role-arn: '${ROLE_ARN}'
+          role-session-name: productcatalogservice
+          skip-when-tags-exist: true
+          tag: '${CIRCLE_SHA1}'
+      - snyk/scan:
+          fail-on-issues: false
+          monitor-on-build: true
+          project: "${AWS_ECR_REGISTRY_NAME}/productcatalogservice"
+          docker-image-name: "${AWS_ECR_REGISTRY_NAME}/productcatalogservice:${CIRCLE_SHA1}"
+          severity-threshold: high
+          token-variable: SNYK_TOKEN
+          target-file: Dockerfile
 
-jobs:
   build_and_publish:
     <<: *base_image
     environment:
@@ -67,26 +104,22 @@ workflows:
   version: 2
   build_and_publish:
     jobs:
-      - aws-ecr/build-and-push-image:
-          assume-web-identity: true
-          aws-cli-version: latest
-          dockerfile: Dockerfile
-          executor: aws-ecr/default
-          extra-build-args: '--compress'
-          no-output-timeout: 20m
-          platform: linux/amd64
-          push-image: true
-          repo: productcatalogservice
-          repo-scan-on-push: true
-          role-arn: '${ROLE_ARN}'
-          role-session-name: productcatalogservice
-          skip-when-tags-exist: true
-          tag: '${CIRCLE_SHA1}'
+      - snyk_oss_scan:
+          context:
+            - snyk
+          filters:
+            branches:
+              only:
+                - main
+      - build_scan_and_push_image:
           context: 
+            - snyk 
             - ecr
+          requires:
+            - snyk_oss_scan
       - update_and_deploy:
           requires: 
-            - aws-ecr/build-and-push-image
+            - build_scan_and_push_image
           context:
             - ecr
             - github
