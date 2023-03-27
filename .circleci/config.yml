@@ -113,6 +113,7 @@ workflows:
       - snyk_oss_scan:
           context:
             - snyk
+            - github
           filters:
             branches:
               only:
