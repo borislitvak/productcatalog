@@ -27,8 +27,13 @@ node_image: &node_image
 jobs:
   snyk_oss_scan:
     <<: *go_node_image
+    environment:
+      GOPRIVATE=github.com/snyk-retail-store-demo
     steps:
       - checkout
+      - run:
+          name: setup private go deps access
+          command: git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/snyk-retail-store-demo".insteadOf "https://github.com/snyk-retail-store-demo"
       - snyk/scan:
           fail-on-issues: false
           monitor-on-build: true
