@@ -18,7 +18,7 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/p0tr3c-snyk/insights-demo-productcatalogservice/genproto"
+	pb "github.com/snyk-retail-store-demo/productcatalog/genproto"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 	"google.golang.org/grpc"

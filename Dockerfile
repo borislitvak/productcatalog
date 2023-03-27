@@ -17,14 +17,20 @@ RUN apk add --no-cache ca-certificates git
 RUN apk add build-base
 
 WORKDIR /src
-# restore dependencies
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
 
+ENV GOPRIVATE=github.com/snyk-retail-store-demo
+
+COPY go.mod go.sum ./
+# Setup go private modules
+RUN --mount=type=secret,id=gh_token,dst=/run/secrets/gh_token,required=true \
+    git config --global url."https://$(cat /run/secrets/gh_token):x-oauth-basic@github.com/snyk-retail-store-demo".insteadOf "https://github.com/snyk-retail-store-demo" && \
+    go mod download
+
+COPY . .
 # Skaffold passes in debug-oriented compiler flags
 ARG SKAFFOLD_GO_GCFLAGS
-RUN go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /productcatalogservice .
+RUN --mount=type=cache,target=/root/.cache/go-build \
+    go build -gcflags="${SKAFFOLD_GO_GCFLAGS}" -o /productcatalogservice .
 
 FROM alpine AS release
 LABEL org.opencontainers.image.source=https://github.com/snyk-retail-store-demo/productcatalog

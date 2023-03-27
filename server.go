@@ -28,7 +28,8 @@ import (
 	"syscall"
 	"time"
 
-	pb "github.com/p0tr3c-snyk/insights-demo-productcatalogservice/genproto"
+	pb "github.com/snyk-retail-store-demo/productcatalog/genproto"
+	"github.com/snyk-retail-store-demo/tracing"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 
 	"cloud.google.com/go/profiler"
@@ -78,7 +79,7 @@ func init() {
 
 func main() {
 	if os.Getenv("DISABLE_TRACING") == "" {
-		initTracing()
+		tracing.InitTracing(log)
 	} else {
 		log.Info("Tracing disabled.")
 	}
