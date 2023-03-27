@@ -48,7 +48,7 @@ jobs:
           assume-web-identity: true
           aws-cli-version: latest
           dockerfile: Dockerfile
-          extra-build-args: '--compress'
+          extra-build-args: '--compress --secret id=gh_token,env=GITHUB_TOKEN'
           no-output-timeout: 20m
           platform: linux/amd64
           push-image: true
@@ -115,6 +115,7 @@ workflows:
           context: 
             - snyk 
             - ecr
+            - github
           requires:
             - snyk_oss_scan
       - update_and_deploy:
