@@ -36,16 +36,10 @@ import (
 	"github.com/golang/protobuf/jsonpb"
 	"github.com/sirupsen/logrus"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
-	"go.opentelemetry.io/contrib/propagators/aws/xray"
-	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
-	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-
-	"go.opentelemetry.io/contrib/detectors/aws/eks"
 )
 
 var (
@@ -168,35 +162,6 @@ func handleErr(err error, message string) {
 	if err != nil {
 		log.Fatalf("%s: %v", message, err)
 	}
-}
-
-func initTracing() {
-	ctx := context.Background()
-
-	endpoint := os.Getenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	if endpoint == "" {
-		endpoint = "0.0.0.0:4317" // setting default endpoint for exporter
-	}
-
-	// Create and start new OTLP trace exporter
-	traceExporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure(), otlptracegrpc.WithEndpoint(endpoint), otlptracegrpc.WithDialOption(grpc.WithBlock()))
-	handleErr(err, "failed to create new OTLP trace exporter")
-
-	idg := xray.NewIDGenerator()
-
-	// Instantiate a new EKS Resource detector
-	eksResourceDetector := eks.NewResourceDetector()
-	resource, err := eksResourceDetector.Detect(context.Background())
-
-	tp := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithResource(resource),
-		sdktrace.WithBatcher(traceExporter),
-		sdktrace.WithIDGenerator(idg),
-	)
-
-	otel.SetTracerProvider(tp)
-	otel.SetTextMapPropagator(xray.Propagator{})
 }
 
 func initProfiling(service, version string) {
