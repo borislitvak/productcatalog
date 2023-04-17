@@ -40,7 +40,7 @@ jobs:
           project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}'
           severity-threshold: high
           token-variable: SNYK_TOKEN
-          additional-arguments: '--project-tags="purl_type=github,purl_namespace=snyk-retail-store-demo,purl_name=${CIRCLE_PROJECT_REPONAME},purl_version=${CIRCLE_BRANCH}"'
+          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}"'
   build_scan_and_push_image:
     <<: *base_image
     environment:
@@ -72,7 +72,7 @@ jobs:
           severity-threshold: high
           token-variable: SNYK_TOKEN
           target-file: Dockerfile
-          additional-arguments: '--project-tags="purl_type=github,purl_namespace=snyk-retail-store-demo,purl_name=${CIRCLE_PROJECT_REPONAME},purl_version=${CIRCLE_BRANCH}"'
+          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}"'
   build_and_publish:
     <<: *base_image
     environment:
