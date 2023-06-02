@@ -17,6 +17,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"flag"
 	"fmt"
 	"io/ioutil"
@@ -51,6 +52,8 @@ var (
 	port = "3550"
 
 	reloadCatalog bool
+
+	db *sql.DB
 )
 
 func init() {
@@ -83,6 +86,18 @@ func main() {
 		go initProfiling("productcatalogservice", "1.0.0")
 	} else {
 		log.Info("Profiling disabled.")
+	}
+
+	user := os.Getenv("DB_USERNAME")
+	password := os.Getenv("DB_PASSWORD")
+	dbName := os.Getenv("DB_NAME")
+	connectionString := fmt.Sprintf("user=%s password=%s dbname=%s sslmode=disable", user, password, dbName)
+	if os.Getenv("ENABLE_SQL") != "" {
+		var err error
+		db, err = sql.Open("postgres", connectionString)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	flag.Parse()
@@ -241,7 +256,7 @@ func (p *productCatalog) GetProduct(ctx context.Context, req *pb.GetProductReque
 			}
 		}
 	} else {
-		_, err := getProducts(nil, req.Id, 0, 100)
+		_, err := getProducts(db, req.Id, 0, 100)
 		if err != nil {
 			return nil, status.Errorf(codes.NotFound, "no product with ID %s", req.Id)
 		}
