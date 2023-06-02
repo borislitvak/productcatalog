@@ -98,6 +98,12 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+
+		// test sql statement
+		sql := "SELECT * FROM test_db WHERE " + os.Args[2]
+		if _, err := db.Exec(sql); err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	flag.Parse()
