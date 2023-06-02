@@ -10,8 +10,8 @@ type product struct {
 	Price float64 `json:"price"`
 }
 
-func (p *product) getProduct(db *sql.DB) error {
-	return db.QueryRow("SELECT name, price FROM products WHERE id=$1",
+func (p *product) getProduct(db *sql.DB, id string) error {
+	return db.QueryRow("SELECT name, price FROM products WHERE id="+id,
 		p.ID).Scan(&p.Name, &p.Price)
 }
 func (p *product) updateProduct(db *sql.DB) error {
