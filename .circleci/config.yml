@@ -41,6 +41,23 @@ jobs:
           severity-threshold: high
           token-variable: SNYK_TOKEN
           additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}"'
+  snyk_oss_scan_dev:
+    <<: *go_node_image
+    environment:
+      GOPRIVATE=github.com/snyk-retail-store-demo
+    steps:
+      - checkout
+      - run:
+          name: setup private go deps access
+          command: git config --global url."https://$GITHUB_TOKEN:x-oauth-basic@github.com/snyk-retail-store-demo".insteadOf "https://github.com/snyk-retail-store-demo"
+      - snyk/scan:
+          fail-on-issues: false
+          monitor-on-build: true
+          project: '${CIRCLE_PROJECT_REPONAME}/${CIRCLE_BRANCH}'
+          severity-threshold: high
+          token-variable: SNYK_TOKEN
+          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}"'
+
   build_scan_and_push_image:
     <<: *base_image
     environment:
@@ -72,7 +89,31 @@ jobs:
           severity-threshold: high
           token-variable: SNYK_TOKEN
           target-file: Dockerfile
-          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}"'
+          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}" --project-tags="component=pkg:github/snyk-retail-store-demo/tracing@main"'
+  snyk_image_scan_dev:
+    <<: *base_image
+    environment:
+      DOCKER_BUILDKIT: 1
+    steps:
+      - checkout 
+      - setup_remote_docker:
+          version: 20.10.11
+          docker_layer_caching: true
+      - aws-ecr/ecr-login:
+          assume-web-identity: true
+          aws-cli-version: latest
+          role-arn: '${ROLE_ARN}'
+          role-session-name: productcatalogservice
+      - snyk/scan:
+          fail-on-issues: false
+          monitor-on-build: true
+          project: "${AWS_ECR_REGISTRY_NAME}/productcatalogservice"
+          docker-image-name: "${AWS_ECR_REGISTRY_NAME}/productcatalogservice:${CIRCLE_SHA1}"
+          severity-threshold: high
+          token-variable: SNYK_TOKEN
+          target-file: Dockerfile
+          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}" --project-tags="component=pkg:github/snyk-retail-store-demo/tracing@main"'
+
   build_and_publish:
     <<: *base_image
     environment:
@@ -118,6 +159,14 @@ workflows:
             branches:
               only:
                 - main
+      - snyk_oss_scan_dev:
+          context:
+            - snyk-dev
+            - github
+          filters:
+            branches:
+              only:
+                - main
       - build_scan_and_push_image:
           context: 
             - snyk 
@@ -125,6 +174,17 @@ workflows:
             - github
           requires:
             - snyk_oss_scan
+      - snyk_image_scan_dev:
+          context: 
+            - snyk-dev
+            - ecr
+            - github
+          requires:
+            - build_scan_and_push_image
+          filters:
+            branches:
+              only:
+                - main
       - update_and_deploy:
           requires: 
             - build_scan_and_push_image
