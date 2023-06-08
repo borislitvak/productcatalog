@@ -89,7 +89,7 @@ jobs:
           severity-threshold: high
           token-variable: SNYK_TOKEN
           target-file: Dockerfile
-          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}" --project-tags="component=pkg:github/snyk-retail-store-demo/tracing@main"'
+          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}","component=pkg:github/snyk-retail-store-demo/tracing@main"'
   snyk_image_scan_dev:
     <<: *base_image
     environment:
@@ -112,7 +112,7 @@ jobs:
           severity-threshold: high
           token-variable: SNYK_TOKEN
           target-file: Dockerfile
-          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}" --project-tags="component=pkg:github/snyk-retail-store-demo/tracing@main"'
+          additional-arguments: '--project-tags="component=pkg:github/snyk-retail-store-demo/${CIRCLE_PROJECT_REPONAME}@${CIRCLE_BRANCH}","component=pkg:github/snyk-retail-store-demo/tracing@main"'
 
   build_and_publish:
     <<: *base_image
